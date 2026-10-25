@@ -223,8 +223,7 @@ def find_hidraw():
 def connect():
     path = find_hidraw()
     if not path:
-        raise IOError('Controle não encontrado: conecte o Ultimate 2.4G pelo cabo USB com a chave de trás '
-                      '(entre P1 e P2) em D.')
+        raise IOError('Conecte o controle via cabo com a chave de trás no D')
     try:
         dev = Hid(path)
     except PermissionError:

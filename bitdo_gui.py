@@ -65,7 +65,7 @@ class ProfilePage(Adw.PreferencesPage):
         g = group(self, 'Perfil')
         self.name = Adw.EntryRow(title='Nome (até 16 letras)')
         self.on = Adw.SwitchRow(title='Usar este perfil personalizado',
-                                subtitle='Desligado, o controle usa o padrão de fábrica neste perfil')
+                                subtitle='Desligado, este perfil fica no padrão de fábrica')
         g.add(self.name)
         g.add(self.on)
 
@@ -145,14 +145,14 @@ class Window(Adw.ApplicationWindow):
             self.stack.add_titled(page, f'perfil{i + 1}', f'Perfil {i + 1}')
 
         header = Adw.HeaderBar(title_widget=Gtk.StackSwitcher(stack=self.stack))
-        reload = Gtk.Button(icon_name='view-refresh-symbolic', tooltip_text='Ler de novo do controle')
-        reload.connect('clicked', lambda *_: self.load('Configuração lida do controle'))
+        reload = Gtk.Button(icon_name='view-refresh-symbolic', tooltip_text='Voltar para a configuração atual')
+        reload.connect('clicked', lambda *_: self.load('Configuração lida'))
         header.pack_start(reload)
         menu = Gio.Menu()
-        menu.append('Salvar backup do controle…', 'win.backup')
-        menu.append('Restaurar backup…', 'win.restore')
+        menu.append('Salvar backup', 'win.backup')
+        menu.append('Restaurar backup', 'win.restore')
         header.pack_end(Gtk.MenuButton(icon_name='open-menu-symbolic', menu_model=menu))
-        self.save = Gtk.Button(label='Gravar no controle', css_classes=['suggested-action'])
+        self.save = Gtk.Button(label='Aplicar configuração', css_classes=['suggested-action'])
         self.save.connect('clicked', self.on_save)
         header.pack_end(self.save)
         for name, handler in (('backup', self.on_backup), ('restore', self.on_restore)):
@@ -161,8 +161,8 @@ class Window(Adw.ApplicationWindow):
             self.add_action(action)
 
         retry = Gtk.Button(label='Tentar de novo', halign=Gtk.Align.CENTER, css_classes=['pill', 'suggested-action'])
-        retry.connect('clicked', lambda *_: self.load('Configuração lida do controle'))
-        self.status = Adw.StatusPage(icon_name='input-gaming-symbolic', title='Conecte o controle', child=retry)
+        retry.connect('clicked', lambda *_: self.load('Configuração lida'))
+        self.status = Adw.StatusPage(icon_name='input-gaming-symbolic', title='Controle não encontrado', child=retry)
         self.main = Gtk.Stack()
         self.main.add_named(self.status, 'status')
         self.main.add_named(self.stack, 'editor')
@@ -216,7 +216,7 @@ class Window(Adw.ApplicationWindow):
             bitdo.write_config(dev, make(old))
             return True
         if self.device(run):
-            self.load('Gravado no controle')
+            self.load('Configuração aplicada')
 
     def on_save(self, *_):
         cfg = {'perfis': [page.collect() for page in self.pages]}
@@ -251,7 +251,7 @@ class Window(Adw.ApplicationWindow):
             return
         data = open(path, 'rb').read()
         if len(data) != bitdo.SIZE:
-            self.toast(f'{os.path.basename(path)} não é um backup do controle')
+            self.toast(f'{os.path.basename(path)} não é um backup válido')
             return
         self.write(lambda old: data)
 

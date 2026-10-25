@@ -31,7 +31,7 @@ printf '[Desktop Entry]\nType=Application\nName=8BitDo Ultimate\nComment=Configu
 
 1. Coloque a chave de trás em **D** e conecte o controle pelo **cabo USB**, de preferência numa porta direta do computador.
 2. Abra **8BitDo Ultimate** no menu de aplicativos (ou `python3 bitdo_gui.py`). A janela lê o controle e mostra os 3 perfis em abas.
-3. Ajuste o perfil e clique em **Gravar no controle**. Antes de gravar, o programa salva um backup automático em `~/.local/share/8bitdo-ultimate/`. O menu (☰) salva e restaura backups.
+3. Ajuste o perfil e clique em **Aplicar configuração**. Antes de gravar, o programa salva um backup automático em `~/.local/share/8bitdo-ultimate/`. O menu (☰) salva e restaura backups.
 4. Escolha o perfil no **botão de perfil** do controle: o programa grava os perfis, mas quem escolhe o perfil em uso é o controle.
 
 ### No terminal
