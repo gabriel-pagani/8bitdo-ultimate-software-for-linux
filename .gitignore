@@ -1,0 +1,4 @@
+__pycache__/
+# configurações lidas do controle e perfis editados
+*.bin
+*.json
