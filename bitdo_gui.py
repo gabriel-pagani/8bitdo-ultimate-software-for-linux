@@ -16,10 +16,9 @@ import bitdo  # noqa: E402
 BACKUP_DIR = os.path.expanduser('~/.local/share/8bitdo-ultimate')
 DEFAULT = bitdo.export(b'\xff' * bitdo.SIZE)['perfis'][0]  # flash apagada = padrão de fábrica
 
-BUTTON_LABELS = {'LS': 'LS (clique do analógico esquerdo)', 'RS': 'RS (clique do analógico direito)',
-                 'STAR': 'Estrela ★', 'HOME': 'Home', 'UP': 'D-pad ↑', 'DOWN': 'D-pad ↓',
-                 'LEFT': 'D-pad ←', 'RIGHT': 'D-pad →', 'P1': 'P1 (pá traseira esquerda)',
-                 'P2': 'P2 (pá traseira direita)'}
+# Como os botões aparecem impressos no controle.
+BUTTON_LABELS = {'LS': 'LSB', 'RS': 'RSB', 'SELECT': '−', 'START': '+', 'STAR': 'Estrela ★', 'HOME': 'Home',
+                 'UP': '↑', 'DOWN': '↓', 'LEFT': '←', 'RIGHT': '→'}
 FUNCTION_LABELS = {**BUTTON_LABELS, 'NONE': 'Desativado', 'TURBO': 'Turbo', 'TURBO_SINGLE': 'Turbo (um toque)',
                    'TURBO_AUTO': 'Turbo automático', 'SCREENSHOT': 'Captura de tela', 'SWAP': 'Swap'}
 # Funções na ordem dos botões do controle, depois as especiais.
