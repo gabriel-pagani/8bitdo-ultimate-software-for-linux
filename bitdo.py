@@ -30,9 +30,10 @@ MODES = {0: 'switch', 1: 'android', 3: 'windows (x-input)'}
 # Ordem dos 20 botões físicos no mapa (MAP_KEY_E + P1/P2).
 BUTTONS = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'LS', 'RS', 'SELECT', 'START',
            'STAR', 'HOME', 'UP', 'DOWN', 'LEFT', 'RIGHT', 'P1', 'P2']
+# RT e Home já trocados, como o AutoR2AndHome() do software original faz para este controle.
 TARGETS = {'NONE': 0, 'START': 1, 'LS': 2, 'RS': 4, 'SELECT': 8, 'X': 0x10, 'Y': 0x20,
            'RIGHT': 0x40, 'LEFT': 0x80, 'DOWN': 0x100, 'UP': 0x200, 'LB': 0x400, 'RB': 0x800,
-           'B': 0x1000, 'A': 0x2000, 'LT': 0x4000, 'HOME': 0x8000, 'TURBO': 0x10000, 'RT': 0x20000,
+           'B': 0x1000, 'A': 0x2000, 'LT': 0x4000, 'RT': 0x8000, 'TURBO': 0x10000, 'HOME': 0x20000,
            'SCREENSHOT': 0x400000, 'TURBO_SINGLE': 0x800000, 'TURBO_AUTO': 0x1000000,
            'P1': 0x2000000, 'P2': 0x4000000, 'SWAP': 0x8000000}
 NAMES = {v: k for k, v in TARGETS.items()}
