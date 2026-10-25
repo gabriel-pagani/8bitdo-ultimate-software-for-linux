@@ -432,13 +432,13 @@ class Window(Adw.ApplicationWindow):
         for i, page in enumerate(self.pages):
             self.stack.add_titled(page, f'perfil{i + 1}', f'Perfil {i + 1}')
         self.preview = Preview()
-        test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=18, margin_bottom=18,
+        live = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=18, margin_bottom=18,
                        margin_start=18, margin_end=18)
-        test.append(Gtk.Label(label='Mostra o que o controle está enviando agora, já com o perfil ativo. '
+        live.append(Gtk.Label(label='Mostra o que o controle está enviando agora, já com o perfil ativo. '
                                     'Troque de perfil no botão de perfil do controle.',
                               wrap=True, css_classes=['dim-label']))
-        test.append(self.preview)
-        self.stack.add_titled(test, 'teste', 'Teste')
+        live.append(self.preview)
+        self.stack.add_titled(live, 'previsualizacao', 'Pré-Visualização')
 
         header = Adw.HeaderBar(title_widget=Gtk.StackSwitcher(stack=self.stack))
         reload = Gtk.Button(icon_name='view-refresh-symbolic', tooltip_text='Voltar para a configuração atual')

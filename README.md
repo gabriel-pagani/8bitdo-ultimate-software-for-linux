@@ -33,7 +33,7 @@ printf '[Desktop Entry]\nType=Application\nName=8BitDo Ultimate\nComment=Configu
 2. Abra **8BitDo Ultimate** no menu de aplicativos (ou `python3 bitdo_gui.py`). A janela lê o controle e mostra os 3 perfis em abas.
 3. Ajuste o perfil e clique em **Aplicar configuração**. Antes de gravar, o programa salva um backup automático em `~/.local/share/8bitdo-ultimate/`. O menu (☰) salva e restaura backups.
 4. Escolha o perfil no **botão de perfil** do controle: o programa grava os perfis, mas quem escolhe o perfil em uso é o controle.
-5. Na aba **Teste**, as fotos do controle (de frente e de cima) acendem o que ele está enviando agora, já com o perfil ativo: se o A estiver configurado como B, apertar A acende o B. Os gatilhos enchem conforme a pressão e os analógicos mostram a posição.
+5. Na aba **Pré-Visualização**, as fotos do controle (de frente e de cima) acendem o que ele está enviando agora, já com o perfil ativo: se o A estiver configurado como B, apertar A acende o B. Os gatilhos enchem conforme a pressão e os analógicos mostram a posição.
 
 > [!note] Fotos do controle
 > As fotos são da 8BitDo e não ficam neste repositório. Na primeira vez, deixe o instalador do Windows (`8BitDo-Ultimate-Software-for-Windows.zip`) na pasta Downloads: o programa copia as duas fotos para `~/.local/share/8bitdo-ultimate/imagens/` e depois o zip pode ser apagado.
