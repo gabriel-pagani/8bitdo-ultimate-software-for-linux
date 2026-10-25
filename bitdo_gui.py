@@ -168,7 +168,8 @@ class Preview(Gtk.DrawingArea):
     """Desenho do controle que acende o que ele está enviando agora: botões, gatilhos, analógicos e D-pad."""
 
     def __init__(self):
-        super().__init__(hexpand=True, vexpand=True, content_height=360)
+        super().__init__(hexpand=True, vexpand=True, content_height=360,
+                         margin_top=18, margin_bottom=18, margin_start=18, margin_end=18)
         self.set_draw_func(self.draw)
         self.photos = load_photos()
         self.fd = self.watch = None
@@ -218,13 +219,6 @@ class Preview(Gtk.DrawingArea):
         self.queue_draw()
         return True
 
-    def status(self):
-        if self.fd is None:
-            return 'Conecte o controle pelo cabo com a chave de trás em D'
-        active = [FUNCTION_LABELS.get(n, n) for n in sorted(self.pressed, key=str)]
-        active += [f'{n.upper()} {round(self.axes[n] * 100)}%' for n in ('lt', 'rt') if self.axes[n] > 0]
-        return 'Enviando: ' + ', '.join(active) if active else 'Aperte um botão no controle'
-
     def draw(self, area, cr, w, h):
         fg = self.get_color()
 
@@ -243,7 +237,6 @@ class Preview(Gtk.DrawingArea):
             text(w / 2, h / 2 - 14, 'Para mostrar o controle, deixe o instalador do Windows da 8BitDo', 15)
             text(w / 2, h / 2 + 12, '(8BitDo-Ultimate-Software-for-Windows.zip) em Downloads e reabra o programa.',
                  13, .6)
-            text(w / 2, h - 24, self.status(), 14)
             return
 
         def rounded(x, y, rw, rh, r):
@@ -330,7 +323,8 @@ class Preview(Gtk.DrawingArea):
         for name, (x0, x1) in TRIGGERS.items():
             text(ox + (x0 + x1) / 2, oy + 146 + th + 26, f'{name.upper()} {round(self.axes[name] * 100)}%', 24)
 
-        text(total_w / 2, fh + 38, self.status(), 24)
+        if self.fd is None:  # sem leitura do controle nada acende: diz o porquê
+            text(total_w / 2, fh + 38, 'Conecte o controle pelo cabo com a chave de trás em D', 24)
 
 def group(page, title, description=None):
     g = Adw.PreferencesGroup(title=title, description=description)
@@ -432,13 +426,7 @@ class Window(Adw.ApplicationWindow):
         for i, page in enumerate(self.pages):
             self.stack.add_titled(page, f'perfil{i + 1}', f'Perfil {i + 1}')
         self.preview = Preview()
-        live = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=18, margin_bottom=18,
-                       margin_start=18, margin_end=18)
-        live.append(Gtk.Label(label='Mostra o que o controle está enviando agora, já com o perfil ativo. '
-                                    'Troque de perfil no botão de perfil do controle.',
-                              wrap=True, css_classes=['dim-label']))
-        live.append(self.preview)
-        self.stack.add_titled(live, 'previsualizacao', 'Pré-Visualização')
+        self.stack.add_titled(self.preview, 'previsualizacao', 'Pré-Visualização')
 
         header = Adw.HeaderBar(title_widget=Gtk.StackSwitcher(stack=self.stack))
         reload = Gtk.Button(icon_name='view-refresh-symbolic', tooltip_text='Voltar para a configuração atual')
