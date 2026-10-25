@@ -72,6 +72,7 @@ STICKS = {'L': (184, 223), 'R': (523, 350)}
 DPAD = (304, 349)
 BUMPERS = {'LB': (134, 242), 'RB': (589, 697)}
 TRIGGERS = {'lt': (138, 236), 'rt': (593, 691)}
+TRIGGER_CENTERS = {'lt': (189, 352), 'rt': (640, 352)}  # centro da área de cada gatilho, onde vai o valor
 
 
 def dotnet_pngs(exe, wanted):
@@ -222,15 +223,15 @@ class Preview(Gtk.DrawingArea):
     def draw(self, area, cr, w, h):
         fg = self.get_color()
 
-        def text(x, y, label, size, alpha=.85):  # Pango: fonte do sistema
+        def text(x, y, label, size, alpha=.85, rgb=None):  # Pango: fonte do sistema; rgb troca a cor do tema
             layout = self.create_pango_layout(label)
             font = self.get_pango_context().get_font_description().copy()
             font.set_weight(Pango.Weight.BOLD)
             font.set_absolute_size(size * Pango.SCALE)
             layout.set_font_description(font)
-            tw, th = layout.get_pixel_size()
-            cr.move_to(x - tw / 2, y - th / 2)
-            cr.set_source_rgba(fg.red, fg.green, fg.blue, alpha)
+            ink = layout.get_pixel_extents()[0]  # centraliza pelo desenho das letras, não pela altura da linha
+            cr.move_to(x - ink.x - ink.width / 2, y - ink.y - ink.height / 2)
+            cr.set_source_rgb(*rgb) if rgb else cr.set_source_rgba(fg.red, fg.green, fg.blue, alpha)
             PangoCairo.show_layout(cr, layout)
 
         if not self.photos:
@@ -320,8 +321,10 @@ class Preview(Gtk.DrawingArea):
                 cr.mask_surface(self.photos['gatilhos'], 0, 0)
                 cr.restore()
         cr.restore()
-        for name, (x0, x1) in TRIGGERS.items():
-            text(ox + (x0 + x1) / 2, oy + 146 + th + 26, f'{name.upper()} {round(self.axes[name] * 100)}%', 24)
+        for name, (cx, cy) in TRIGGER_CENTERS.items():  # valor no meio do gatilho: branco quando o azul chega nele
+            value = self.axes[name]
+            text(ox + cx, oy + cy, f'{round(value * 100)}%', 24,
+                 rgb=(1, 1, 1) if 96 * value > 405 - cy else (.25, .25, .25))
 
         if self.fd is None:  # sem leitura do controle nada acende: diz o porquê
             text(total_w / 2, fh + 38, 'Conecte o controle pelo cabo com a chave de trás em D', 24)
