@@ -2,16 +2,16 @@
 
 Configura o controle **8BitDo Ultimate 2.4G** sem o Ultimate Software do Windows: mapeamento dos botões (inclusive as pás traseiras P1/P2), vibração, zona morta dos analógicos e dos gatilhos, inversão de eixos e as demais opções, nos 3 perfis do controle.
 
-É um único script Python, sem dependências. O protocolo foi extraído do Ultimate Software V2.16 (`8BitDoAdvance.dll`).
+Tem uma janela (`bitdo_gui.py`, GTK 4 + libadwaita, que já vêm no GNOME/Zorin) e uma versão de terminal (`bitdo.py`), em Python, sem outras dependências. O protocolo foi extraído do Ultimate Software V2.16 (`8BitDoAdvance.dll`).
 
 ## Como funciona
 
 O controle tem uma chave atrás, entre as pás P1 e P2:
 
-- **D (Android):** o controle aparece como gamepad HID e tem o canal de configuração. É o modo que este script usa, **pelo cabo USB**.
+- **D (Android):** o controle aparece como gamepad HID e tem o canal de configuração. É o modo que o programa usa, **pelo cabo USB**.
 - **X (Windows):** o controle aparece como controle de Xbox, sem canal de configuração. Pelo receptor 2.4G ele só conecta nesse modo.
 
-O controle guarda uma configuração separada para cada posição da chave. Os perfis gravados por este script valem com a **chave em D**. A configuração do modo X continua a de fábrica: no Windows, o software da 8BitDo entra nela com uma sequência de vibração que não funcionou no Linux.
+O controle guarda uma configuração separada para cada posição da chave. Os perfis gravados pelo programa valem com a **chave em D**. A configuração do modo X continua a de fábrica: no Windows, o software da 8BitDo entra nela com uma sequência de vibração que não funcionou no Linux.
 
 ## Instalação
 
@@ -21,11 +21,22 @@ Libere o acesso ao controle sem sudo (uma vez só):
 sudo cp 70-8bitdo.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
 ```
 
+Para ter o atalho "8BitDo Ultimate" no menu de aplicativos, rode na pasta do projeto:
+
+```bash
+printf '[Desktop Entry]\nType=Application\nName=8BitDo Ultimate\nComment=Configurar o controle 8BitDo Ultimate 2.4G\nExec=python3 %s/bitdo_gui.py\nIcon=input-gaming\nCategories=Settings;HardwareSettings;\n' "$PWD" > ~/.local/share/applications/io.github.gabrielpagani.Bitdo.desktop
+```
+
 ## Uso
 
 1. Coloque a chave de trás em **D** e conecte o controle pelo **cabo USB**, de preferência numa porta direta do computador.
-2. Antes de mudar qualquer coisa, salve a configuração atual: `python3 bitdo.py backup original.bin`.
-3. Exporte, edite e grave:
+2. Abra **8BitDo Ultimate** no menu de aplicativos (ou `python3 bitdo_gui.py`). A janela lê o controle e mostra os 3 perfis em abas.
+3. Ajuste o perfil e clique em **Gravar no controle**. Antes de gravar, o programa salva um backup automático em `~/.local/share/8bitdo-ultimate/`. O menu (☰) salva e restaura backups.
+4. Escolha o perfil no **botão de perfil** do controle: o programa grava os perfis, mas quem escolhe o perfil em uso é o controle.
+
+### No terminal
+
+Antes de mudar qualquer coisa, salve a configuração atual com `python3 bitdo.py backup original.bin`. Depois exporte, edite e grave:
 
 ```
 python3 bitdo.py info                 # versão do firmware e resumo dos perfis (só lê)
@@ -34,9 +45,7 @@ python3 bitdo.py importar perfis.json # grava o JSON no controle (faz backup ant
 python3 bitdo.py restaurar original.bin
 ```
 
-4. Escolha o perfil no **botão de perfil** do controle: o script grava os perfis, mas quem escolhe o perfil em uso é o controle.
-
-## Formato do JSON
+## Formato do JSON (terminal)
 
 Cada um dos 3 perfis tem:
 
