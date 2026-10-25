@@ -6,6 +6,7 @@ import os
 import struct
 import sys
 import time
+import zipfile
 
 import cairo
 import gi
@@ -51,11 +52,105 @@ SIDES = ('esquerdo', 'direito')
 # O que o controle envia ao sistema no modo D (evdev), já com o perfil ativo aplicado pelo firmware.
 EV_KEY, EV_ABS = 1, 3
 # Medido no controle real; LT/RT (312/313) também chegam como eixo de pressão, que é o que o desenho usa.
-KEY_CODES = {304: 'A', 305: 'B', 306: 'P1', 307: 'X', 308: 'Y', 309: 'P2', 310: 'LB', 311: 'RB',
+KEY_CODES = {304: 'A', 305: 'B', 307: 'X', 308: 'Y', 310: 'LB', 311: 'RB',
              314: 'SELECT', 315: 'START', 316: 'HOME', 317: 'LS', 318: 'RS'}
+# Fora do preview: os gatilhos (desenhados pelo eixo) e os botões extras 306/309 que o modo D manda quando
+# P1/P2 estão sem função; as pás não têm função própria, o que elas fazem aparece no botão de destino.
+IGNORED_KEYS = (306, 309, 312, 313)
 # Analógicos e gatilhos vão de 0 a 255; o D-pad (hx/hy) vem como -1, 0 ou 1.
 ABS_CODES = {0: 'lx', 1: 'ly', 2: 'rx', 5: 'ry', 9: 'rt', 10: 'lt', 16: 'hx', 17: 'hy'}
 ACCENT = (0.21, 0.52, 0.89)  # azul de destaque do libadwaita 1.5
+
+IMG_DIR = os.path.join(BACKUP_DIR, 'imagens')
+# Fotos do controle que vêm no instalador do Windows: de frente e de cima (com os gatilhos).
+PHOTOS = {'frente': 'Sticks_BG_Ultimate2_4', 'cima': 'Triggers_BG_Ultimate2_4'}
+# Posições medidas nas fotos (828 x 664 px): centro e raio dos botões, centro dos analógicos (cabeça de raio 50),
+# centro do D-pad (alcance 66) e faixas em x de ombros (y 232 a 306) e gatilhos (y 309 a 405) na foto de cima.
+FRONT_BUTTONS = {'Y': (643, 166, 27), 'X': (586, 223, 27), 'B': (699, 222, 27), 'A': (643, 279, 27),
+                 'HOME': (414, 156, 24), 'SELECT': (353, 223, 19), 'START': (475, 223, 19)}
+STICKS = {'L': (184, 223), 'R': (523, 350)}
+DPAD = (304, 349)
+BUMPERS = {'LB': (134, 242), 'RB': (589, 697)}
+TRIGGERS = {'lt': (138, 236), 'rt': (593, 691)}
+
+
+def dotnet_pngs(exe, wanted):
+    """PNGs com os nomes pedidos, lidos do .resources embutido num executável .NET."""
+    def read7(buf, i):  # inteiro com 7 bits por byte, como o BinaryReader do .NET
+        n = shift = 0
+        while True:
+            b = buf[i]
+            i += 1
+            n |= (b & 0x7f) << shift
+            shift += 7
+            if b < 0x80:
+                return n, i
+    found = {}
+    start = exe.find(b'\xce\xca\xef\xbe')  # assinatura de cada bloco .resources
+    while start != -1 and len(found) < len(wanted):
+        i = start + 8
+        i += 4 + struct.unpack_from('<i', exe, i)[0]  # pula os nomes de tipo do leitor
+        _, count, types = struct.unpack_from('<iii', exe, i)
+        i += 12
+        for _ in range(types):
+            n, i = read7(exe, i)
+            i += n
+        i += -(i - start) % 8  # alinhamento de 8 bytes
+        positions = struct.unpack_from(f'<{count}i', exe, i + 4 * count)
+        i += 8 * count
+        data_section, names = struct.unpack_from('<i', exe, i)[0], i + 4
+        for pos in positions:
+            n, j = read7(exe, names + pos)
+            if exe[j:j + n].decode('utf-16-le') in wanted:
+                png = exe.find(b'\x89PNG', start + data_section + struct.unpack_from('<i', exe, j + n)[0])
+                found[exe[j:j + n].decode('utf-16-le')] = exe[png:exe.find(b'IEND', png) + 8]
+        start = exe.find(b'\xce\xca\xef\xbe', start + 4)
+    return found
+
+
+def trigger_mask(top):
+    """Tira o azul dos gatilhos da foto de cima (ficam cinza como o plástico) e devolve a máscara do formato deles."""
+    top.flush()
+    data, stride = top.get_data(), top.get_stride()
+    mask = cairo.ImageSurface(cairo.FORMAT_A8, top.get_width(), top.get_height())
+    mdata, mstride = mask.get_data(), mask.get_stride()
+    for x0, x1 in TRIGGERS.values():
+        for y in range(300, 415):
+            for x in range(x0 - 5, x1 + 6):
+                i = y * stride + 4 * x
+                b, g, r = data[i], data[i + 1], data[i + 2]  # ARGB32 na memória: B, G, R, A
+                if b > 150 and b - r > 25:
+                    gray = (3 * r + 6 * g + b) // 10
+                    data[i:i + 3] = bytes((gray, gray, gray))
+                    mdata[y * mstride + x] = 255
+    top.mark_dirty()
+    mask.mark_dirty()
+    return mask
+
+
+def load_photos():
+    """As fotos são da 8BitDo: saem do instalador do Windows do usuário (zip em Downloads) para IMG_DIR e
+    nunca vão para o repositório. None se o instalador não for encontrado."""
+    paths = {k: os.path.join(IMG_DIR, k + '.png') for k in PHOTOS}
+    if not all(map(os.path.exists, paths.values())):
+        for z in glob.glob(os.path.expanduser('~/Downloads/8BitDo*Ultimate*Software*.zip')):
+            try:
+                with zipfile.ZipFile(z) as zf:
+                    exe = next(n for n in zf.namelist() if n.endswith('Ultimate Software.exe'))
+                    pngs = dotnet_pngs(zf.read(exe), set(PHOTOS.values()))
+            except (OSError, zipfile.BadZipFile, StopIteration, struct.error, IndexError, UnicodeDecodeError):
+                continue
+            if len(pngs) == len(PHOTOS):
+                os.makedirs(IMG_DIR, exist_ok=True)
+                for k, name in PHOTOS.items():
+                    with open(paths[k], 'wb') as f:
+                        f.write(pngs[name])
+                break
+        else:
+            return None
+    photos = {k: cairo.ImageSurface.create_from_png(p) for k, p in paths.items()}
+    photos['gatilhos'] = trigger_mask(photos['cima'])
+    return photos
 
 
 def find_event():
@@ -73,8 +168,9 @@ class Preview(Gtk.DrawingArea):
     """Desenho do controle que acende o que ele está enviando agora: botões, gatilhos, analógicos e D-pad."""
 
     def __init__(self):
-        super().__init__(hexpand=True, vexpand=True, content_height=400)
+        super().__init__(hexpand=True, vexpand=True, content_height=360)
         self.set_draw_func(self.draw)
+        self.photos = load_photos()
         self.fd = self.watch = None
         self.reset()
 
@@ -113,7 +209,7 @@ class Preview(Gtk.DrawingArea):
             return False
         for i in range(0, len(data) - 23, 24):
             _, _, typ, code, val = struct.unpack_from('<qqHHi', data, i)
-            if typ == EV_KEY and 304 <= code <= 319 and code not in (312, 313):
+            if typ == EV_KEY and 304 <= code <= 319 and code not in IGNORED_KEYS:
                 name = KEY_CODES.get(code, f'botão {code}')
                 (self.pressed.add if val else self.pressed.discard)(name)
             elif typ == EV_ABS and code in ABS_CODES:
@@ -122,16 +218,17 @@ class Preview(Gtk.DrawingArea):
         self.queue_draw()
         return True
 
+    def status(self):
+        if self.fd is None:
+            return 'Conecte o controle pelo cabo com a chave de trás em D'
+        active = [FUNCTION_LABELS.get(n, n) for n in sorted(self.pressed, key=str)]
+        active += [f'{n.upper()} {round(self.axes[n] * 100)}%' for n in ('lt', 'rt') if self.axes[n] > 0]
+        return 'Enviando: ' + ', '.join(active) if active else 'Aperte um botão no controle'
+
     def draw(self, area, cr, w, h):
         fg = self.get_color()
-        s = min(w / 600, h / 400)
-        cr.translate((w - 600 * s) / 2, (h - 400 * s) / 2)
-        cr.scale(s, s)
 
-        def ink(alpha):
-            cr.set_source_rgba(fg.red, fg.green, fg.blue, alpha)
-
-        def text(x, y, label, size, on=False):  # Pango: fonte do sistema e símbolos como − e ↑
+        def text(x, y, label, size, alpha=.85):  # Pango: fonte do sistema
             layout = self.create_pango_layout(label)
             font = self.get_pango_context().get_font_description().copy()
             font.set_weight(Pango.Weight.BOLD)
@@ -139,8 +236,15 @@ class Preview(Gtk.DrawingArea):
             layout.set_font_description(font)
             tw, th = layout.get_pixel_size()
             cr.move_to(x - tw / 2, y - th / 2)
-            cr.set_source_rgb(1, 1, 1) if on else ink(.85)
+            cr.set_source_rgba(fg.red, fg.green, fg.blue, alpha)
             PangoCairo.show_layout(cr, layout)
+
+        if not self.photos:
+            text(w / 2, h / 2 - 14, 'Para mostrar o controle, deixe o instalador do Windows da 8BitDo', 15)
+            text(w / 2, h / 2 + 12, '(8BitDo-Ultimate-Software-for-Windows.zip) em Downloads e reabra o programa.',
+                 13, .6)
+            text(w / 2, h - 24, self.status(), 14)
+            return
 
         def rounded(x, y, rw, rh, r):
             cr.new_path()
@@ -154,117 +258,79 @@ class Preview(Gtk.DrawingArea):
             cr.new_path()
             cr.arc(x, y, r, 0, 2 * math.pi)
 
-        def paint(on, idle=.14):  # azul quando ativo, tom do tema quando não
-            cr.set_source_rgb(*ACCENT) if on else ink(idle)
-            cr.fill()
-
-        def button(x, y, r, name, size=13):
-            on = name in self.pressed
-            if on:  # brilho em volta
-                circle(x, y, r + 5)
-                cr.set_source_rgba(*ACCENT, .3)
-                cr.fill()
-            circle(x, y, r)
-            paint(on)
-            text(x, y, BUTTON_LABELS.get(name, name), size, on)
-
-        def pill(x, y, pw, ph, name, label_y):
-            on = name in self.pressed
-            rounded(x, y, pw, ph, ph / 2)
-            paint(on, .18)
-            text(x + pw / 2, label_y, BUTTON_LABELS.get(name, name), 12, on)
-
-        # atrás do corpo: gatilhos (enchem na proporção exata da pressão), ombros e pás traseiras
-        for name, x in (('lt', 122), ('rt', 372)):
-            value = self.axes[name]
-            rounded(x, 14, 106, 56, 16)
-            ink(.10)
+        def glow():  # destaque do que está ativo: azul translúcido com contorno
+            cr.set_source_rgba(*ACCENT, .55)
             cr.fill_preserve()
-            cr.save()
-            cr.clip()
-            cr.rectangle(x, 14, 106 * value, 56)
             cr.set_source_rgb(*ACCENT)
-            cr.fill()
-            cr.restore()
-            text(x + 53, 36, f'{name.upper()} {round(value * 100)}%', 12, value > .5)
-        pill(108, 58, 134, 34, 'LB', 72)
-        pill(358, 58, 134, 34, 'RB', 72)
-        pill(224, 266, 48, 26, 'P2', 279)  # vistas de frente: P2 à esquerda, P1 à direita
-        pill(328, 266, 48, 26, 'P1', 279)
-
-        # corpo com pegadas, simétrico em torno de x = 300
-        right = [((360, 92), (400, 84), (450, 90)), ((500, 96), (530, 120), (545, 170)),
-                 ((560, 230), (565, 300), (540, 335)), ((520, 362), (478, 362), (462, 335)),
-                 ((445, 305), (420, 262), (380, 258))]
-        cr.new_path()
-        cr.move_to(300, 92)
-        for c1, c2, end in right:
-            cr.curve_to(*c1, *c2, *end)
-        cr.curve_to(345, 255, 255, 255, 220, 258)
-        points = [(300, 92)] + [p for seg in right for p in seg]
-        for i in range(len(points) - 1, 0, -3):  # mesmo contorno espelhado, percorrido de volta
-            (x1, y1), (x2, y2), (x0, y0) = points[i - 1], points[i - 2], points[i - 3]
-            cr.curve_to(600 - x1, y1, 600 - x2, y2, 600 - x0, y0)
-        cr.close_path()
-        shade = cairo.LinearGradient(0, 85, 0, 360)
-        shade.add_color_stop_rgba(0, fg.red, fg.green, fg.blue, .16)
-        shade.add_color_stop_rgba(1, fg.red, fg.green, fg.blue, .07)
-        cr.set_source(shade)
-        cr.fill_preserve()
-        ink(.12)
-        cr.set_line_width(1.5)
-        cr.stroke()
-
-        for name, cx, cy in (('LS', 172, 150), ('RS', 364, 222)):  # analógicos: base funda e cabeça que se move
-            circle(cx, cy, 36)
-            ink(.12)
-            cr.fill()
-            k = name[0].lower()
-            x, y = cx + (self.axes[k + 'x'] - .5) * 32, cy + (self.axes[k + 'y'] - .5) * 32
-            button(x, y, 24, name, 11)
-            circle(x, y, 18)
-            ink(.10)
-            cr.set_line_width(1.5)
+            cr.set_line_width(3)
             cr.stroke()
 
-        cx, cy, a, r = 236, 222, 13, 33  # D-pad em cruz
-        cr.new_path()
-        for px, py in ((-a, -r), (a, -r), (a, -a), (r, -a), (r, a), (a, a), (a, r), (-a, r), (-a, a), (-r, a),
-                       (-r, -a), (-a, -a)):
-            cr.line_to(cx + px, cy + py)
-        cr.close_path()
-        ink(.14)
-        cr.fill()
+        # as duas fotos lado a lado, cortadas no contorno do controle:
+        # frente (18..810 x 62..625) e cima (73..756 x 146..451)
+        fw, fh, tw, th, gap = 792, 563, 683, 305, 40
+        total_w, total_h = fw + gap + tw, fh + 60
+        s = min(w / total_w, h / total_h)
+        cr.translate((w - total_w * s) / 2, (h - total_h * s) / 2)
+        cr.scale(s, s)
+
+        cr.save()
+        cr.translate(-18, -62)
+        cr.rectangle(18, 62, fw, fh)
+        cr.clip()
+        cr.set_source_surface(self.photos['frente'], 0, 0)
+        cr.paint()
+        for name, (x, y, r) in FRONT_BUTTONS.items():
+            if name in self.pressed:
+                circle(x, y, r + 2)
+                glow()
+        for side, (cx, cy) in STICKS.items():
+            dx, dy = (self.axes[side.lower() + 'x'] - .5) * 2, (self.axes[side.lower() + 'y'] - .5) * 2
+            if side + 'S' in self.pressed:
+                circle(cx, cy, 52)
+                glow()
+            if math.hypot(dx, dy) > .1:  # inclinado: anel e ponto azuis deslocados para onde aponta
+                circle(cx + dx * 22, cy + dy * 22, 50)
+                cr.set_source_rgb(*ACCENT)
+                cr.set_line_width(4)
+                cr.stroke()
+                circle(cx + dx * 22, cy + dy * 22, 9)
+                cr.fill()
+        cx, cy = DPAD
+        a, r = 23, 66
         for dx, dy, on in ((0, -1, self.axes['hy'] < 0), (0, 1, self.axes['hy'] > 0),
                            (-1, 0, self.axes['hx'] < 0), (1, 0, self.axes['hx'] > 0)):
             if on:  # acende só o braço apertado
                 x0 = cx - a if not dx else (cx - r if dx < 0 else cx + a)
                 y0 = cy - a if not dy else (cy - r if dy < 0 else cy + a)
-                cr.rectangle(x0, y0, r - a if dx else 2 * a, r - a if dy else 2 * a)
-                cr.set_source_rgb(*ACCENT)
-                cr.fill()
-            cr.new_path()  # seta apontando para fora
-            cr.move_to(cx + dx * 28, cy + dy * 28)
-            cr.line_to(cx + dx * 19 - dy * 6, cy + dy * 19 - dx * 6)
-            cr.line_to(cx + dx * 19 + dy * 6, cy + dy * 19 + dx * 6)
-            cr.close_path()
-            cr.set_source_rgb(1, 1, 1) if on else ink(.6)
-            cr.fill()
+                rounded(x0, y0, r - a if dx else 2 * a, r - a if dy else 2 * a, 6)
+                glow()
+        cr.restore()
 
-        for name, x, y in (('Y', 428, 121), ('A', 428, 179), ('X', 399, 150), ('B', 457, 150)):
-            button(x, y, 15, name)
-        button(300, 116, 16, 'HOME', 9)
-        button(262, 160, 11, 'SELECT')
-        button(300, 160, 11, 'STAR', 12)  # o ★ não envia nada ao sistema, então nunca acende
-        button(338, 160, 11, 'START')
+        ox, oy = fw + gap - 73, (fh - th) / 2 - 146
+        cr.save()
+        cr.translate(ox, oy)
+        cr.rectangle(73, 146, tw, th)
+        cr.clip()
+        cr.set_source_surface(self.photos['cima'], 0, 0)
+        cr.paint()
+        for name, (x0, x1) in BUMPERS.items():
+            if name in self.pressed:
+                rounded(x0, 232, x1 - x0, 74, 12)
+                glow()
+        for name, (x0, x1) in TRIGGERS.items():  # gatilho: enche de baixo para cima no formato real
+            value = self.axes[name]
+            if value > 0:
+                cr.save()
+                cr.rectangle(x0 - 6, 405 - 96 * value, x1 - x0 + 12, 96 * value + 6)
+                cr.clip()
+                cr.set_source_rgba(*ACCENT, .85)
+                cr.mask_surface(self.photos['gatilhos'], 0, 0)
+                cr.restore()
+        cr.restore()
+        for name, (x0, x1) in TRIGGERS.items():
+            text(ox + (x0 + x1) / 2, oy + 146 + th + 26, f'{name.upper()} {round(self.axes[name] * 100)}%', 24)
 
-        if self.fd is None:
-            status = 'Conecte o controle pelo cabo com a chave de trás em D'
-        else:
-            active = [FUNCTION_LABELS.get(n, n) for n in sorted(self.pressed, key=str)]
-            active += [f'{n.upper()} {round(self.axes[n] * 100)}%' for n in ('lt', 'rt') if self.axes[n] > 0]
-            status = 'Enviando: ' + ', '.join(active) if active else 'Aperte um botão no controle'
-        text(300, 384, status, 14)
+        text(total_w / 2, fh + 38, self.status(), 24)
 
 def group(page, title, description=None):
     g = Adw.PreferencesGroup(title=title, description=description)
@@ -359,7 +425,7 @@ class ProfilePage(Adw.PreferencesPage):
 
 class Window(Adw.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title='8BitDo Ultimate 2.4G', default_width=720, default_height=820)
+        super().__init__(application=app, title='8BitDo Ultimate 2.4G', default_width=900, default_height=820)
         self.raw = None
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         self.pages = [ProfilePage() for _ in range(3)]
