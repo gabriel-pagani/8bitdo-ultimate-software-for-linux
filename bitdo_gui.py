@@ -259,7 +259,7 @@ class Window(Adw.ApplicationWindow):
 
 def main():
     app = Adw.Application(application_id='io.github.gabrielpagani.Bitdo')
-    app.connect('activate', lambda app: Window(app).present())
+    app.connect('activate', lambda app: (app.get_active_window() or Window(app)).present())
     return app.run(sys.argv)
 
 
