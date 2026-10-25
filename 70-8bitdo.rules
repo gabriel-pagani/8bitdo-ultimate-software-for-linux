@@ -1,0 +1,2 @@
+# Libera para o usuário logado (sem sudo) o hidraw dos dispositivos 8BitDo.
+KERNEL=="hidraw*", ATTRS{idVendor}=="2dc8", TAG+="uaccess"
