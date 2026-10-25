@@ -17,10 +17,12 @@ BACKUP_DIR = os.path.expanduser('~/.local/share/8bitdo-ultimate')
 DEFAULT = bitdo.export(b'\xff' * bitdo.SIZE)['perfis'][0]  # flash apagada = padrão de fábrica
 
 # Como os botões aparecem impressos no controle.
-BUTTON_LABELS = {'LS': 'LSB', 'RS': 'RSB', 'SELECT': '−', 'START': '+', 'STAR': 'Estrela ★', 'HOME': 'Home',
+BUTTON_LABELS = {'LS': 'LSB', 'RS': 'RSB', 'SELECT': '−', 'START': '+', 'STAR': '★', 'HOME': 'Home',
                  'UP': '↑', 'DOWN': '↓', 'LEFT': '←', 'RIGHT': '→'}
-FUNCTION_LABELS = {**BUTTON_LABELS, 'NONE': 'Desativado', 'TURBO': 'Turbo', 'TURBO_SINGLE': 'Turbo (um toque)',
-                   'TURBO_AUTO': 'Turbo automático', 'SCREENSHOT': 'Captura de tela', 'SWAP': 'Swap'}
+# Nas listas de ação − e + sozinhos não dizem nada: lá vale o nome da função.
+FUNCTION_LABELS = {**BUTTON_LABELS, 'SELECT': 'Select', 'START': 'Start', 'NONE': 'Desativado', 'TURBO': 'Turbo',
+                   'TURBO_SINGLE': 'Turbo (um toque)', 'TURBO_AUTO': 'Turbo automático',
+                   'SCREENSHOT': 'Captura de tela', 'SWAP': 'Swap'}
 # Funções na ordem dos botões do controle, depois as especiais.
 FUNCTIONS = [b for b in bitdo.BUTTONS if b in bitdo.TARGETS] + \
     ['TURBO', 'TURBO_SINGLE', 'TURBO_AUTO', 'SCREENSHOT', 'SWAP', 'NONE']
