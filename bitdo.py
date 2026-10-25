@@ -234,6 +234,15 @@ def connect():
     return dev
 
 
+def disconnect(dev):
+    # Com o envio pausado o controle para de mandar os botões ao sistema até ser reconectado.
+    try:
+        send(dev, header(7, 1))
+    except OSError:  # cabo desconectado: não há o que retomar
+        pass
+    dev.close()
+
+
 USAGE = """uso: bitdo.py <comando>
   info                 versão do firmware e resumo dos perfis
   exportar ARQ.json    salva os 3 perfis num JSON editável
@@ -281,7 +290,7 @@ def main():
             write_config(dev, apply(old, cfg) if cmd == 'importar' else new)
             print('Gravado. Confira com: bitdo.py exportar conferir.json')
     finally:
-        dev.close()
+        disconnect(dev)
 
 
 if __name__ == '__main__':

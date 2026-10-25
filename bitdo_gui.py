@@ -192,7 +192,7 @@ class Window(Adw.ApplicationWindow):
         except OSError as e:
             self.toast(f'Erro de comunicação: {e}')
         finally:
-            dev.close()
+            bitdo.disconnect(dev)
 
     def load(self, message=None):
         got = self.device(lambda dev: (bitdo.version(dev), bitdo.read_config(dev)))
