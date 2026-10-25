@@ -223,15 +223,14 @@ def find_hidraw():
 def connect():
     path = find_hidraw()
     if not path:
-        sys.exit('Controle não encontrado: conecte o Ultimate 2.4G pelo cabo USB com a chave de trás '
-                 '(entre P1 e P2) em D.')
+        raise IOError('Controle não encontrado: conecte o Ultimate 2.4G pelo cabo USB com a chave de trás '
+                      '(entre P1 e P2) em D.')
     try:
         dev = Hid(path)
     except PermissionError:
-        sys.exit(f'Sem permissão em {path}: instale a regra udev (70-8bitdo.rules) e reconecte o cabo.')
+        raise IOError(f'Sem permissão em {path}: instale a regra udev (70-8bitdo.rules) e reconecte o cabo.') from None
     send(dev, header(7, 0))  # pausa o envio de teclas pelo canal de configuração
     time.sleep(0.1)
-    print(f'Ultimate 2.4G em {path}')
     return dev
 
 
@@ -257,7 +256,10 @@ def main():
         new = open(args[0], 'rb').read()
         if len(new) != SIZE:
             sys.exit(f'{args[0]} não é um backup válido ({len(new)} bytes, esperado {SIZE})')
-    dev = connect()
+    try:
+        dev = connect()
+    except OSError as e:
+        sys.exit(str(e))
     try:
         if cmd == 'info':
             print(f'Firmware: {version(dev)}')
