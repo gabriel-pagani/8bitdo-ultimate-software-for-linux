@@ -190,6 +190,8 @@ def apply(raw, cfg):
         if not all(v in range(6) for v in vib):
             raise ValueError(f'perfil {i + 1}: vibração vai de 0 a 5')
         a, g = p['analogicos'], p['gatilhos']
+        if not all(0 <= a[s][k] <= 128 for s in a for k in a[s]):
+            raise ValueError(f'perfil {i + 1}: analógicos vão de 0 a 128')
         name = p['nome'].encode('utf-16-le')[:32]
         raw[O_NAME + i * 32:O_NAME + i * 32 + 32] = name.ljust(32, b'\0')
         struct.pack_into('<20I', raw, O_MAP + i * 84 + 4, *(target(p['botoes'][b]) for b in BUTTONS))
